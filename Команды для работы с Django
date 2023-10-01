@@ -1,0 +1,38 @@
+И запускаем команду создания проекта:
+
+(venv) ~/django-projects $ django-admin startproject NewsPaper
+Переходим в директорию проекта:
+
+(venv) ~/django-projects $ cd NewsPaper
+Здесь мы видим замечательный файл manage.py, который является точкой входа для управления проектом.
+Также через консоль запустим следующую команду, которая создаст новое приложение news.
+
+(venv) ~/django-projects/NewsPaper $ python3 manage.py startapp news
+
+одна для создания миграций, другая — для их применения.
+
+(venv) ~/django-projects/Mac $ python3 manage.py makemigrations
+(venv) ~/django-projects/Mac $ python3 manage.py migrate
+
+(venv) ~/django-projects/Mac $ python3 manage.py shell
+
+Для начала мы должны импортировать модель (ведь она находится в отдельном модуле-приложении mc_donalds):
+
+>>> from mc_donalds.models import Product
+Затем уже можем выполнить команды, которые написали выше:
+
+product_1 = Product(name = "Витая пара 3 м", price = 309.0)
+
+#####################
+>>> from rest.models import Order
+>>> Order.objects.create(staff = cashier1, pickup = False)
+>>> Order.objects.create(staff = cashier2, pickup = True)>>> Order.objects.create(staff = cashier1, pickup = True)
+Мы имеем всего 3 заказа, два из которых принадлежат одному сотруднику и третий (в порядке добавления — второй) —
+другому сотруднику. Но, например, мы хотим получить все заказы сотрудника с labor_contract = 1754.
+
+>>> Order.objects.filter(staff__labor_contract = 1754).values("staff__full_name", "pickup")
+
+Что мы только что сделали? Мы применили фильтр, но не по самому полю текущей модели, а по полям
+связанной модели. Для этого использовали также двойное подчёркивание и сразу за ним — поле,
+по которому будем фильтровать.
+######################
