@@ -1,5 +1,5 @@
 """
-URL configuration for NewsPaper project.
+URL configuration for project project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/4.2/topics/http/urls/
@@ -18,11 +18,12 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    # Делаем так, чтобы все адреса из нашего приложения (newsp/urls.py)
-    # подключались к главному приложению с префиксом products/.
-    path('news/', include('news.urls')),
-    path('accounts/', include('allauth.urls')),  # D5.5 Оставили только allauth
-    #path('pages/', include('django.contrib.flatpages.urls')), # D3.2
-    #path('', include('django.contrib.flatpages.urls')), # D3.2
+   path('admin/', admin.site.urls),
+   path('pages/', include('django.contrib.flatpages.urls')),
+   # path('accounts/', include('django.contrib.auth.urls')),  # D5.3
+   # path("accounts/", include("accounts.urls")),             # D5.3
+   path("accounts/", include("allauth.urls")),  # Оставили только allauth
+   # Делаем так, чтобы все адреса из нашего приложения (simpleapp/urls.py)
+   # подключались к главному приложению с префиксом products/.
+   path('products/', include('simpleapp.urls')),
 ]

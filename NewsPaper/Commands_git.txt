@@ -9,3 +9,41 @@ git add .
 Добавляем комментарий к нашему проекту:
 
 git commit -m "Очередное изменение проекта" -a
+
+Теперь подключаемся к созданному репозиторию:
+
+git remote add origin https://github.com/dmosktest/project1.git
+https://github.com/DonVitoSyso/NewsPaper2.git
+
+Закидываем проект на GitHub:
+
+git push origin master
+
+############################
+Получение файлов с GitHub
+Для загрузки на компьютер файлов, создаем каталог с проектом и переходим в него:
+
+mkdir /projects2
+
+cd /projects2
+
+Проводим начальную настройку локального репозитория:
+
+git init
+
+Подключаемся к удаленному репозиторию:
+
+git remote add origin https://github.com/dmosktest/project1.git
+
+Скачиваем проект командой:
+
+git pull https://github.com/dmosktest/project1.git master
+
+Клонирование проекта
+Выполняется командой:
+
+git clone <репозиторий на GitHub>
+
+Например, использую наш репозиторий:
+
+git clone https://github.com/dmosktest/project1.git

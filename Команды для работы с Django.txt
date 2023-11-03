@@ -1,3 +1,7 @@
+venv
+MacBook-Air-Anocka:django-projects anockavoronovskaa$ source venv/bin/activate
+(venv) MacBook-Air-Anocka:django-projects anockavoronovskaa$ deactivate
+
 И запускаем команду создания проекта:
 
 (venv) ~/django-projects $ django-admin startproject NewsPaper
@@ -36,3 +40,6 @@ product_1 = Product(name = "Витая пара 3 м", price = 309.0)
 связанной модели. Для этого использовали также двойное подчёркивание и сразу за ним — поле,
 по которому будем фильтровать.
 ######################
+python manage.py createsuperuser (admin/admin)
+
+python -m pip install django-filter

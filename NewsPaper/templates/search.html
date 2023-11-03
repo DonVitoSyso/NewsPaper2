@@ -1,0 +1,138 @@
+{% extends 'flatpages/default.html' %}
+
+{% block title %}
+News
+{% endblock title %}
+{% load custom_tags %}
+{% load custom_filters %}
+
+{% block content %}
+
+<style>
+    .news {
+        display: inline-block;
+        margin: 0 10px 10px 0; /* Отступы */
+        padding: 10px 0; /* Поля сверху и снизу */
+        width: 60%; /* Ширина */
+        }
+    .new2 {
+        display: inline-block;
+        margin: 0 10px 10px 0; /* Отступы */
+        padding: 10px 0; /* Поля сверху и снизу */
+        width: 60%; /* Ширина */
+        text-align: left;
+        }
+    .str {
+        display: block;
+        text-align: left;
+        }
+    .grey {
+        color: grey;
+        text-align: left;
+        }
+    A {
+        text-decoration: none; /* Убирает подчеркивание для ссылок */
+        color: black;
+        }
+    A:hover {
+        text-decoration: underline; /* Добавляем подчеркивание при наведении курсора на ссылку */
+        color: grey;
+        }
+    .top { border-top:1px solid grey;}
+</style>
+
+<h4>Найдено новостей {{filter.qs|length}} по запросу: </h4>
+<!-- Перед таблицей добавим форму для поиска -->
+<table>
+    <div class="new2">
+        <form method="GET">
+            <!-- Форму от фильтров за нас сделает django. А вот кнопку, увы придётся делать самому -->
+            {{ filter.form }}
+            <table>
+                <td></td>
+                <p></p>
+                <td><input type="submit" value="Найти"></td>
+            </table>
+        </form>
+    </div>
+</table>
+
+<!--  loop -->
+<p>
+  {{filter.type}}
+</p>
+<p>
+  {{filter.qs.type}}
+</p>
+
+{% if filter == null %} <!-- Если есть новости, то выводим таблицу с ними -->
+    <h2>НОВОСТЕЙ НЕТ!</h2>
+{% else %}
+<table>
+
+    {% for new in news %}
+    <tr>
+        <td class="top">
+            <div class="news">
+                <strong class="str">
+                   {{ new.title|censor }} <!-- При нажатии на имя новости в таблице нас теперь будет перекидывать на страницу самой новости  -->
+                </strong>
+
+                <div class="str">
+                    <small>
+                        <a href="#"> {{ new.get_type_display }} </a> -
+                        {% for category in new.category.all %}
+                            {{ category }}
+                        {% endfor %}
+                    </small>
+                </div>
+
+                <div class="str">
+                    <small>
+                        {{ new.author.username }} - {{ new.date|date:'d/m/Y' }}
+                    </small>
+                </div>
+            </div>
+        </td>
+        <td class="top">
+            <div class="news">
+                <div class="grey">
+                    {{ new.text|truncatechars:150 }}
+                </div>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+
+<div>
+<!-- Проверяем что поддерживается постраничный вывод -->
+<!-- Проверяем что поддерживается постраничный вывод -->
+{% if is_paginated %}
+    <!-- Если доступна предыдущая страница, то даём ссылку на неё и самую первую страницу -->
+    {% if page_obj.has_previous %}
+        <a href="?{% url_replace page=1 %}">1</a>
+        {% if page_obj.previous_page_number != 1 %}
+            <a href="?{% url_replace page=page_obj.previous_page_number %}"><<<</a>
+            ...
+            <a href="?{% url_replace page=page_obj.previous_page_number %}">{{ page_obj.previous_page_number }}</a>
+        {% endif %}
+    {% endif %}
+
+    <!-- Показываем только текущую страницу и ближайшие к ней, чтобы список не тянулся и не захламлял страницу -->
+    {{ page_obj.number }}
+
+    <!-- Если есть следующая страница, то даём ссылку на неё и на самую последнюю страницу -->
+    {% if page_obj.has_next %}
+        <a href="?{% url_replace page=page_obj.next_page_number %}">{{ page_obj.next_page_number }}</a>
+        {% if paginator.num_pages != page_obj.next_page_number %}
+            ...
+            <a href="?{% url_replace page=page_obj.next_page_number %}">>>></a>
+            <a href="?{% url_replace page=page_obj.paginator.num_pages %}">{{ page_obj.paginator.num_pages }}</a>
+        {% endif %}
+    {% endif %}
+{% endif %}
+</div>
+
+{% endblock content %}
