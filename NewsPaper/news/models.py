@@ -140,6 +140,19 @@ class Comment(models.Model):
 
 # D6
 class CatSub(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='subscriptions',
+        null=True
+    )
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name='subscriptions',
+        null=True
+    )
+    '''
     category = models.ForeignKey(Category, on_delete=models.CASCADE, blank=True, null=True)
     subscriber = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
 
@@ -154,3 +167,4 @@ class CatSub(models.Model):
 
     def __str__(self):
         return f'{self.subscriber} - {self.category.name}'
+        '''

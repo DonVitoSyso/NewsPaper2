@@ -2,8 +2,9 @@ from django.urls import path
 # Импортируем созданное нами представление
 from .views import (
                      PostsList, PostDetail, PostSearch,
-                     PostCreate, PostDelete, PostUpdate,  #D4
-                     ArticleCreate
+                     PostCreate, PostDelete, PostUpdate, # D4
+                     ArticleCreate,
+                     subscriptions,                      # D6
                      )
 
 
@@ -17,7 +18,7 @@ urlpatterns = [
    path('', PostsList.as_view()),
    # pk — это первичный ключ товара, который будет выводиться у нас в шаблон
    # int — указывает на то, что принимаются только целочисленные значения
-   path('<int:pk>', PostDetail.as_view()),
+   path('<int:pk>', PostDetail.as_view(), name='new'),
    # D4
    path('search/', PostSearch.as_view(), name='search'),
    path('search/<int:pk>', PostSearch.as_view(), name='new_search'),
@@ -27,4 +28,5 @@ urlpatterns = [
    path('article/create/', ArticleCreate.as_view(), name='article_create'),
    path('article/<int:pk>/edit', PostUpdate.as_view(), name='article_update'),
    path('article/<int:pk>/delete', PostDelete.as_view(), name='article_delete'),
+   path('subscriptions/', subscriptions, name='subscriptions'),                  # D6
 ]

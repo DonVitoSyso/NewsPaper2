@@ -21,7 +21,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # Делаем так, чтобы все адреса из нашего приложения (newsp/urls.py)
     # подключались к главному приложению с префиксом products/.
-    path('news/', include('news.urls')),
+    #path('', include('news.urls')), #
+    path('news/', include('news.urls')), #4.11.2023
     path('accounts/', include('allauth.urls')),  # D5.5 Оставили только allauth
     #path('pages/', include('django.contrib.flatpages.urls')), # D3.2
     #path('', include('django.contrib.flatpages.urls')), # D3.2

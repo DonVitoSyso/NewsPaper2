@@ -43,3 +43,7 @@ product_1 = Product(name = "Витая пара 3 м", price = 309.0)
 python manage.py createsuperuser (admin/admin)
 
 python -m pip install django-filter
+
+#############
+python manage.py runapscheduler
+

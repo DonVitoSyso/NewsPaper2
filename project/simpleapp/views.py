@@ -7,7 +7,10 @@ from django.views.generic import (
     ListView, DetailView, CreateView, # refresh D4.5
     UpdateView, DeleteView # D4.5
 )
-from .models import Product
+from .models import (
+    Product,
+    Category, Subscription  # D6.3
+)
 # D 3.3
 # from datetime import datetime D 3.4
 # D4.2
@@ -19,6 +22,11 @@ from .forms import ProductForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 # D 5.3
 from django.contrib.auth.mixins import PermissionRequiredMixin
+# D 6.3
+from django.contrib.auth.decorators import login_required
+from django.db.models import Exists, OuterRef
+from django.shortcuts import render
+from django.views.decorators.csrf import csrf_protect
 
 
 class ProductsList(ListView):
@@ -32,7 +40,7 @@ class ProductsList(ListView):
     # Это имя списка, в котором будут лежать все объекты.
     # Его надо указать, чтобы обратиться к списку объектов в html-шаблоне.
     context_object_name = 'products'
-    paginate_by = 3 # вот так мы можем указать количество записей на странице D 4.2
+    paginate_by = 8 # вот так мы можем указать количество записей на странице D 4.2
 
     # D 3.3
     # Метод get_context_data позволяет нам изменить набор данных,
@@ -114,3 +122,34 @@ class ProductDelete(PermissionRequiredMixin, DeleteView):
     template_name = 'product_delete.html'
     success_url = reverse_lazy('product_list')
 
+
+# D6.3
+@login_required
+@csrf_protect
+def subscriptions(request):
+    if request.method == 'POST':
+        category_id = request.POST.get('category_id')
+        category = Category.objects.get(id=category_id)
+        action = request.POST.get('action')
+
+        if action == 'subscribe':
+            Subscription.objects.create(user=request.user, category=category)
+        elif action == 'unsubscribe':
+            Subscription.objects.filter(
+                user=request.user,
+                category=category,
+            ).delete()
+
+    categories_with_subscriptions = Category.objects.annotate(
+        user_subscribed=Exists(
+            Subscription.objects.filter(
+                user=request.user,
+                category=OuterRef('pk'),
+            )
+        )
+    ).order_by('name')
+    return render(
+        request,
+        'subscriptions.html',
+        {'categories': categories_with_subscriptions},
+    )

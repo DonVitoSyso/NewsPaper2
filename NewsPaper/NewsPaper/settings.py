@@ -52,19 +52,46 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.yandex',
+    # D6
+    'django_apscheduler',
 ]
 
 SITE_ID = 1
-LOGIN_REDIRECT_URL = "/news" # D5.3
+LOGIN_REDIRECT_URL = "/" # D5.3
 
 # D5.5
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory' # D6.3
+# ACCOUNT_EMAIL_VERIFICATION = 'none' # D6.3
 ACCOUNT_FORMS = {"signup": "accounts.forms.CustomSignupForm"}
 # D5.5
+
+# D6.2
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+#EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.yandex.ru'
+EMAIL_PORT = 465
+EMAIL_HOST_USER = "vitosyso@yandex.ru"
+EMAIL_HOST_PASSWORD = "OtivOsys"
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = True
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+SERVER_EMAIL = "vitosyso@yandex.ru"
+MANAGERS = (
+    ('Vito', 'vitosyso@yandex.ru'),
+    #('Petr', 'petr@yandex.ru'),
+)
+
+ADMINS = (
+    ('Vito', 'vitosyso@yandex.ru'),
+    #('Petr', 'petr@yandex.ru'),
+)
+# D6.2
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

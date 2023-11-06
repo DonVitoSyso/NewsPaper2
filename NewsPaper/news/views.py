@@ -20,6 +20,12 @@ from django.urls import reverse_lazy
 from .forms import PostForm
 # D 5.3
 from django.contrib.auth.mixins import PermissionRequiredMixin
+# D 6
+from django.contrib.auth.decorators import login_required
+from django.db.models import Exists, OuterRef
+from django.shortcuts import render
+from django.views.decorators.csrf import csrf_protect
+from .models import CatSub, Category
 
 
 class PostsList(ListView):
@@ -164,3 +170,34 @@ class ArticleCreate(PermissionRequiredMixin, CreateView):
 
         return validated
 
+
+# D6
+@login_required
+@csrf_protect
+def subscriptions(request):
+    if request.method == 'POST':
+        category_id = request.POST.get('category_id')
+        category = Category.objects.get(id=category_id)
+        action = request.POST.get('action')
+
+        if action == 'subscribe':
+            CatSub.objects.create(user=request.user, category=category)
+        elif action == 'unsubscribe':
+            CatSub.objects.filter(
+                user=request.user,
+                category=category,
+            ).delete()
+
+    categories_with_subscriptions = Category.objects.annotate(
+        user_subscribed=Exists(
+            CatSub.objects.filter(
+                user=request.user,
+                category=OuterRef('pk'),
+            )
+        )
+    ).order_by('name')
+    return render(
+        request,
+        'subscriptions.html',
+        {'categories': categories_with_subscriptions},
+    )

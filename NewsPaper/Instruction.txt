@@ -228,4 +228,375 @@ class ProductDelete(PermissionRequiredMixin, DeleteView):
     {% endif %}
 
 
-18.
+##################################
+D6
+
+1. Класс 'django.core.mail.backends.console.EmailBackend',
+который вместо отправки письма по электронной почте просто напечатает его в консоли
+
+2. project/settings.py
+
+...
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.yandex.ru'
+EMAIL_PORT = 465
+EMAIL_HOST_USER = "example@yandex.ru"
+EMAIL_HOST_PASSWORD = "iliezvcovrxqizez"
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = True
+
+DEFAULT_FROM_EMAIL = "example@yandex.ru"
+
+3.accounts/forms.py
+
+from django.core.mail import EmailMultiAlternatives
+
+    def save(self, request):
+        user = super().save(request)
+        subject = 'Добро пожаловать в наш интернет-магазин!'
+        text = f'{user.username}, вы успешно зарегистрировались на сайте!'
+        html = (
+            f'<b>{user.username}</b>, вы успешно зарегистрировались на '
+            f'<a href="http://127.0.0.1:8000/products">сайте</a>!'
+        )
+        msg = EmailMultiAlternatives(
+            subject=subject, body=text, from_email=None, to=[user.email, "vitosyso@yandex.ru"]
+        )
+        msg.attach_alternative(html, "text/html")
+        msg.send()
+        return user
+
+4.project/settings.py
+
+...
+
+SERVER_EMAIL = "example@yandex.ru"
+MANAGERS = (
+    ('Ivan', 'ivan@yandex.ru'),
+    ('Petr', 'petr@yandex.ru'),
+)
+
+accounts/forms.py
+
+from allauth.account.forms import SignupForm
+from django.core.mail import mail_managers
+
+
+class CustomSignupForm(SignupForm):
+    def save(self, request):
+        user = super().save(request)
+
+        mail_managers(
+            subject='Новый пользователь!',
+            message=f'Пользователь {user.username} зарегистрировался на сайте.'
+        )
+
+        return user
+
+5. ...
+project/settings.py
+
+...
+
+ADMINS = (
+    ('anton', 'anton@yandex.ru'),
+)
+
+6. settings.py
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True позволит избежать дополнительного входа
+и активирует аккаунт сразу, как только мы перейдём по ссылке.
+ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS хранит количество дней, когда доступна
+ссылка на подтверждение регистрации.
+
+7.templates/account/email/email_confirmation_message.txt
+
+{% extends "account/email/base_message.txt" %}
+{% load account %}
+{% load i18n %}
+
+{% block content %}{% autoescape off %}{% user_display user as user_display %}{% blocktrans with site_name=current_site.name site_domain=current_site.domain %}Вы получили это сообщение, потому что пользователь {{ user_display }} указал этот email при регистрации на сайте {{ site_domain }}.
+
+Для подтверждения регистрации пройдите по ссылке {{ activate_url }}
+
+Хорошего дня!
+{% endblocktrans %}{% endautoescape %}
+{% endblock %}
+
+
+8.simpleapp/models.py
+
+from django.contrib.auth.models import User
+...
+class Subscription(models.Model):
+    user = models.ForeignKey(
+        to=User,
+        on_delete=models.CASCADE,
+        related_name='subscriptions',
+    )
+    category = models.ForeignKey(
+        to='Category',
+        on_delete=models.CASCADE,
+        related_name='subscriptions',
+    )
+
+9. python3 manage.py makemigrations
+python3 manage.py migrate
+
+
+10. simpleapp/views.py
+
+from django.contrib.auth.decorators import login_required
+from django.db.models import Exists, OuterRef
+from django.shortcuts import render
+from django.views.decorators.csrf import csrf_protect
+from .models import Subscription, Category
+
+
+@login_required
+@csrf_protect
+def subscriptions(request):
+    if request.method == 'POST':
+        category_id = request.POST.get('category_id')
+        category = Category.objects.get(id=category_id)
+        action = request.POST.get('action')
+
+        if action == 'subscribe':
+            Subscription.objects.create(user=request.user, category=category)
+        elif action == 'unsubscribe':
+            Subscription.objects.filter(
+                user=request.user,
+                category=category,
+            ).delete()
+
+    categories_with_subscriptions = Category.objects.annotate(
+        user_subscribed=Exists(
+            Subscription.objects.filter(
+                user=request.user,
+                category=OuterRef('pk'),
+            )
+        )
+    ).order_by('name')
+    return render(
+        request,
+        'subscriptions.html',
+        {'categories': categories_with_subscriptions},
+    )
+
+
+11. simpleapp/urls.py
+
+from django.urls import path
+
+from .views import (
+    ProductsList, ProductDetail, ProductCreate, ProductUpdate, ProductDelete,
+    subscriptions
+)
+
+urlpatterns = [
+    path('', ProductsList.as_view(), name='product_list'),
+    path('<int:pk>', ProductDetail.as_view(), name='product_detail'),
+    path('create/', ProductCreate.as_view(), name='product_create'),
+    path('<int:pk>/update/', ProductUpdate.as_view(), name='product_update'),
+    path('<int:pk>/delete/', ProductDelete.as_view(), name='product_delete'),
+    path('subscriptions/', subscriptions, name='subscriptions'),
+]
+
+12. templates/subscriptions.html
+
+{% extends 'flatpages/default.html' %}
+
+{% block title %}
+Subscriptions
+{% endblock title %}
+
+{% block content %}
+    {% for category in categories  %}
+        <p>
+            {{ category.name }}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="category_id" value="{{ category.id }}" />
+
+                {% if category.user_subscribed %}
+                    <button disabled>Подписаться</button>
+                    <button name="action" value="unsubscribe">Отписаться</button>
+                {% else %}
+                    <button name="action" value="subscribe">Подписаться</button>
+                    <button disabled>Отписаться</button>
+                {% endif %}
+            </form>
+        </p>
+    {% endfor %}
+{% endblock content %}
+
+
+13. simpleapp/signals.py
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+from .models import Product
+
+
+@receiver(post_save, sender=Product)
+def product_created(instance, **kwargs):
+    print('Создан товар', instance)
+
+
+14. simpleapp/apps.py
+
+from django.apps import AppConfig
+
+
+class SimpleappConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'simpleapp'
+
+    def ready(self):
+        from . import signals  # выполнение модуля -> регистрация сигналов
+
+15. simpleapp/signals.py
+
+from django.contrib.auth.models import User
+from django.core.mail import EmailMultiAlternatives
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+from .models import Product
+
+
+@receiver(post_save, sender=Product)
+def product_created(instance, created, **kwargs):
+    if not created:
+        return
+
+    emails = User.objects.filter(
+        subscriptions__category=instance.category
+    ).values_list('email', flat=True)
+
+    subject = f'Новый товар в категории {instance.category}'
+
+    text_content = (
+        f'Товар: {instance.name}\n'
+        f'Цена: {instance.price}\n\n'
+        f'Ссылка на товар: http://127.0.0.1:8000{instance.get_absolute_url()}'
+    )
+    html_content = (
+        f'Товар: {instance.name}<br>'
+        f'Цена: {instance.price}<br><br>'
+        f'<a href="http://127.0.0.1{instance.get_absolute_url()}">'
+        f'Ссылка на товар</a>'
+    )
+    for email in emails:
+        msg = EmailMultiAlternatives(subject, text_content, None, [email])
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+
+16.pip install django-apscheduler
+
+
+project/settings.py
+
+INSTALLED_APPS = [
+    ...,
+    "django_apscheduler",
+]
+
+
+python3 manage.py migrate
+
+
+17.Путь до файла с командой очень важен. Файл должен лежать в одном из наших приложений,
+по пути management/commands. А название файла будет идентично тому, как мы хотим назвать саму команду.
+
+simpleapp/management/commands/runapscheduler.py
+
+import logging
+
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
+from django.conf import settings
+from django.core.management.base import BaseCommand
+from django_apscheduler import util
+from django_apscheduler.jobstores import DjangoJobStore
+from django_apscheduler.models import DjangoJobExecution
+
+logger = logging.getLogger(__name__)
+
+
+def my_job():
+    # Your job processing logic here...
+    pass
+
+# The `close_old_connections` decorator ensures that database connections,
+# that have become unusable or are obsolete, are closed before and after your
+# job has run. You should use it to wrap any jobs that you schedule that access
+# the Django database in any way.
+@util.close_old_connections
+def delete_old_job_executions(max_age=604_800):
+    """
+    This job deletes APScheduler job execution entries older than `max_age`
+    from the database.
+    It helps to prevent the database from filling up with old historical
+    records that are no longer useful.
+
+    :param max_age: The maximum length of time to retain historical
+                    job execution records. Defaults to 7 days.
+    """
+    DjangoJobExecution.objects.delete_old_job_executions(max_age)
+
+
+class Command(BaseCommand):
+    help = "Runs APScheduler."
+
+    def handle(self, *args, **options):
+        scheduler = BlockingScheduler(timezone=settings.TIME_ZONE)
+        scheduler.add_jobstore(DjangoJobStore(), "default")
+
+        scheduler.add_job(
+            my_job,
+            trigger=CronTrigger(second="*/10"),  # Every 10 seconds
+            id="my_job",  # The `id` assigned to each job MUST be unique
+            max_instances=1,
+            replace_existing=True,
+        )
+        logger.info("Added job 'my_job'.")
+
+        scheduler.add_job(
+            delete_old_job_executions,
+            trigger=CronTrigger(
+                day_of_week="mon", hour="00", minute="00"
+            ),
+            id="delete_old_job_executions",
+            max_instances=1,
+            replace_existing=True,
+        )
+        logger.info("Added weekly job: 'delete_old_job_executions'.")
+
+        try:
+            logger.info("Starting scheduler...")
+            scheduler.start()
+        except KeyboardInterrupt:
+            logger.info("Stopping scheduler...")
+            scheduler.shutdown()
+            logger.info("Scheduler shut down successfully!")
+
+18. simpleapp/management/commands/runapscheduler.py
+
+from simpleapp.models import Product
+from django.core.mail import mail_managers
+...
+def my_job():
+    products = Product.objects.order_by('price')[:3]
+    text = '\n'.join(['{} - {}'.format(p.name, p.price) for p in products])
+    mail_managers("Самые дешевые товары", text)
+...
+
+19. python manage.py runapscheduler
+
+
+
+
