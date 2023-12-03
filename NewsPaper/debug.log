@@ -1,0 +1,58 @@
+Watching for file changes with StatReloader
+Not Found: /
+"GET / HTTP/1.1" 404 2276
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 2327
+"GET /news HTTP/1.1" 301 0
+"GET /news/ HTTP/1.1" 200 13157
+"GET /static/css/styles.css HTTP/1.1" 200 236765
+Watching for file changes with StatReloader
+INFO Watching for file changes with StatReloader
+INFO "GET /news/subscriptions/ HTTP/1.1" 302 0
+INFO "GET /accounts/login/?next=/news/subscriptions/ HTTP/1.1" 200 2399
+INFO "GET /news/ HTTP/1.1" 200 13157
+INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+INFO Watching for file changes with StatReloader
+INFO "GET /news/ HTTP/1.1" 200 13157
+INFO "GET /news/ HTTP/1.1" 200 13157
+INFO Watching for file changes with StatReloader
+INFO "GET /news/ HTTP/1.1" 200 13157
+INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+2023-12-03 01:03:21,822 INFO Watching for file changes with StatReloader
+2023-12-03 01:03:25,397 INFO "GET /news/ HTTP/1.1" 200 13157
+2023-12-03 01:05:53,119 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+2023-12-03 01:05:55,361 INFO Watching for file changes with StatReloader
+2023-12-03 01:06:03,442 INFO "GET /news/ HTTP/1.1" 200 13157
+2023-12-03 01:07:07,288 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+2023-12-03 01:07:09,306 INFO Watching for file changes with StatReloader
+2023-12-03 01:07:13,819 INFO "GET /news/ HTTP/1.1" 200 13157
+2023-12-03 01:13:58,363 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+2023-12-03 01:14:00,567 INFO Watching for file changes with StatReloader
+2023-12-03 01:15:06,329 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+2023-12-03 01:15:08,922 INFO Watching for file changes with StatReloader
+2023-12-03 01:17:22,892 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+2023-12-03 01:17:25,256 INFO Watching for file changes with StatReloader
+2023-12-03 01:49:12,431 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+2023-12-03 01:49:14,783 INFO Watching for file changes with StatReloader
+2023-12-03 01:49:33,581 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+03-12-2023 01:49:35 INFO Watching for file changes with StatReloader
+03-12-2023 01:54:55 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+03-12-2023 01:54:58 INFO Watching for file changes with StatReloader
+03-12-2023 01:55:24 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+03-12-2023 01:55:25 INFO Watching for file changes with StatReloader
+03-12-2023 01:57:46 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+03-12-2023 01:57:49 INFO Watching for file changes with StatReloader
+03-12-2023 01:58:42 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+03-12-2023 02:04:37 INFO Watching for file changes with StatReloader
+03-12-2023 02:35:03 INFO Watching for file changes with StatReloader
+03-12-2023 02:35:26 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
+03-12-2023 02:41:07 INFO Watching for file changes with StatReloader
+03-12-2023 02:41:11 WARNING Not Found: /
+03-12-2023 02:41:11 WARNING "GET / HTTP/1.1" 404 2276
+03-12-2023 02:41:13 WARNING Not Found: /
+03-12-2023 02:41:13 WARNING "GET / HTTP/1.1" 404 2276
+03-12-2023 02:41:14 WARNING Not Found: /
+03-12-2023 02:41:14 WARNING "GET / HTTP/1.1" 404 2276
+03-12-2023 02:41:19 WARNING Not Found: /
+03-12-2023 02:41:19 WARNING "GET / HTTP/1.1" 404 2276
+03-12-2023 02:41:47 INFO /Users/anockavoronovskaa/SkillFactory/project_dir/django-projects/NewsPaper/NewsPaper/settings.py changed, reloading.
