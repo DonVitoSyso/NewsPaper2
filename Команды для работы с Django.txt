@@ -17,6 +17,14 @@ MacBook-Air-Anocka:django-projects anockavoronovskaa$ source venv/bin/activate
 
 (venv) ~/django-projects/Mac $ python3 manage.py makemigrations
 (venv) ~/django-projects/Mac $ python3 manage.py migrate
+python manage.py showmigrations — показать все изменения вносимые в базу данных.
+Выгрузить все записи из нашей БД в JSON-файл:
+python manage.py dumpdata --format=json > mydata.json
+python manage.py dumpdata --format=xml > mydata.xml (XML)
+Так, ну и теперь попробуем удалить данные через админ-панель и снова загрузить их, но уже через команду loaddata:
+python manage.py loaddata mydata.json
+Ну и команда экстерминатус — полная очистка базы данных, т. е. удаление всех данных из таблиц в ней.
+python manage.py flush
 
 (venv) ~/django-projects/Mac $ python3 manage.py shell
 
@@ -47,3 +55,16 @@ python -m pip install django-filter
 #############
 python manage.py runapscheduler
 
+###########
+redis-server
+celery -A Mac worker -l INFO
+
+###########
+python3 manage.py check --deploy
+Результатом ее выполнения является анализ приложения на наличие ошибок, угроз безопасности и др.
+Использование этой команды может быть также полезным при рассмотрении вашего приложения с точки
+зрения безопасности.
+
+############
+команда для сбора статистических файлов нужна при развертывании проекта на сервере
+python manage.py collectstatic

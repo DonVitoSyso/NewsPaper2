@@ -1,0 +1,32 @@
+Работа с подпиской:
+
+1. Добавим новое поле подписки в модель Category (models)
+class Category(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    subscribers = models.ManyToManyField(User, through='categories')
+
+НЕ НУЖНО добавлять промежуточную модель. Промежуточная модель НУЖНА ТОЛЬКО КОГДА планируется
+добавить дополнительные поля к которым нужен доступ, которые одновременно обращаются к нескольким
+моделям.
+
+2. urls
+path('categories/<int:pk>', CategoryList.as_view(), name='category_list')
+
+3. view
+class CategoryList(ListView):
+   model = Post
+   template_name = 'news/categories_list.html'
+   context_object_name = 'categories_new_list'
+
+   def get_queryset(self):
+      self.category = get_object_or_404(Category, id=self.kwargs['pk'])
+      queryset = Post.object.filter(category=self.category).order_by['-date']
+      return queryset # список статей относящихся к этой категории
+
+   def get_contex_data(self, **kwarg):
+      contex = super().get_contex_data(**kwarg)
+      contex['is_not_subscriber'] = self.request.user not in self.category.subscribers.all()
+      contex['category'] = self.category
+      return contex
+
+

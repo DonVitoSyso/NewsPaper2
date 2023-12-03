@@ -13,6 +13,21 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 import os
 
+# start 10.11.2023
+## importing the load_dotenv from the python-dotenv module
+from dotenv import load_dotenv
+
+load_dotenv()
+env_path = Path('.')/'.env'
+load_dotenv(dotenv_path=env_path)
+
+# retrieving keys and adding them to the project
+# from the .env file through their key names
+SECRET_KEY = os.getenv("SECRET_KEY")
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+# end 10.11.2023
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -21,7 +36,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-97&74ny$9t-0v@81!q28#4asy0_d0b01u7xvxcaau1_#xx8%r9'
+# SECRET_KEY = 'django-insecure-97&74ny$9t-0v@81!q28#4asy0_d0b01u7xvxcaau1_#xx8%r9'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -64,8 +79,8 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'mandatory' # D6.3
-# ACCOUNT_EMAIL_VERIFICATION = 'none' # D6.3
+#ACCOUNT_EMAIL_VERIFICATION = 'mandatory' # D6.3
+ACCOUNT_EMAIL_VERIFICATION = 'none' # D6.3
 ACCOUNT_FORMS = {"signup": "accounts.forms.CustomSignupForm"}
 # D5.5
 
@@ -74,8 +89,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 #EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.yandex.ru'
 EMAIL_PORT = 465
-EMAIL_HOST_USER = "vitosyso@yandex.ru"
-EMAIL_HOST_PASSWORD = "OtivOsys"
+# EMAIL_HOST_USER = "vitosyso@yandex.ru"
+# EMAIL_HOST_PASSWORD = "OtivOsys"
 EMAIL_USE_TLS = False
 EMAIL_USE_SSL = True
 
@@ -92,6 +107,24 @@ ADMINS = (
     #('Petr', 'petr@yandex.ru'),
 )
 # D6.2
+
+# D6_5
+# формат даты, которую будет воспринимать наш задачник (вспоминаем модуль по фильтрам)
+APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
+
+# если задача не выполняется за 25 секунд, то она автоматически снимается, можете поставить время побольше, но как правило, это сильно бьёт по производительности сервера
+APSCHEDULER_RUN_NOW_TIMEOUT = 25  # Seconds
+
+# D7_2
+CELERY_BROKER_URL = 'redis://localhost:6379'
+# указывает на хранилище результатов выполнения задач
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
+# допустимый формат данных
+CELERY_ACCEPT_CONTENT = ['application/json']
+# метод сериализации (преобразования данных) задач
+CELERY_TASK_SERIALIZER = 'json'
+# метод сериализации результатов
+CELERY_RESULT_SERIALIZER = 'json'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -186,3 +219,139 @@ AUTHENTICATION_BACKENDS = [
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static'), ]
 STATIC_URL = 'static/'    # os.path.join(BASE_DIR, 'static/')
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+
+# D13
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'loggers': {                                # определение логера
+        'django': {
+            'handlers': ['console', 'console2', 'console3', 'general'],
+            'level': 'DEBUG',                   # уровень логирования
+        },
+        'django.request': {
+            'handlers': ['errors', 'mail_admins'],
+            'level': 'DEBUG',
+        },
+        'django.server': {
+            'handlers': ['errors', 'mail_admins'],
+            'level': 'DEBUG',
+        },
+        'django.template': {
+            'handlers': ['errors'],
+            'level': 'DEBUG',
+        },
+        'django.db.backends': {
+            'handlers': ['errors'],
+            'level': 'DEBUG',
+        },
+        'django.security': {
+            'handlers': ['security'],
+            'level': 'DEBUG',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',   # инфо в консоль
+            'formatter': 'myformatters',
+            'filters': ['require_debug_true'],
+        },
+        'console2': {
+            'level': 'WARNING',
+            'class': 'logging.StreamHandler',   # инфо в консоль
+            'formatter': 'myformatters2',
+            'filters': ['require_debug_true'],
+        },
+        'console3': {
+            'level': 'ERROR',
+            'class': 'logging.StreamHandler',   # инфо в консоль
+            'formatter': 'myformatters3',
+            'filters': ['require_debug_true'],
+        },
+        'general': {                            # настройка нашего приложения
+            'level': 'INFO',
+            'class': 'logging.FileHandler',     # класс - как будет обрабатываться наш handlers
+            'filename': 'general.log',
+            'formatter': 'myformatters_general',
+            'filters': ['require_debug_false'],
+        },
+        'errors': {                            # настройка нашего приложения
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',     # класс - как будет обрабатываться наш handlers
+            'filename': 'errors.log',
+            'formatter': 'myformatters_errors',
+        },
+        'security': {                            # настройка нашего приложения
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',     # класс - как будет обрабатываться наш handlers
+            'filename': 'security.log',
+            'formatter': 'myformatters_security',
+        },
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+            'formatter': 'myformatters_mail',
+            'filters': ['require_debug_false'],
+        }
+        # 'news': {                               # настройка нашего приложения
+        #     'level': 'INFO',
+        #     'class': 'logging.FileHandler',     # класс - как будет обрабатываться наш handlers
+        #     'filename': 'general.log',
+        #     'formatter': 'myformatters',
+        #     'filters': ['require_debug_true'],
+        # },
+    },
+    'formatters': {
+        'myformatters': {
+            #'format': '{levelname} {message}',  # корректируем наше сообщение - добавили уровень и само сообщение
+            'format': '{asctime} {levelname} {message}',
+            'datefmt': '%d-%m-%Y %H:%M:%S',
+            'style': '{',
+        },
+        'myformatters2': {
+            #'format': '{levelname} {message}',  # корректируем наше сообщение - добавили уровень и само сообщение
+            'format': '{asctime} {levelname} {message} {pathname}',
+            #'datefmt': '%d-%m-%Y %H:%M:%S',
+            'style': '{',
+        },
+        'myformatters3': {
+            #'format': '{levelname} {message}',  # корректируем наше сообщение - добавили уровень и само сообщение
+            'format': '{asctime} {levelname} {message} : {pathname} - {exc_info}',
+            #'datefmt': '%d-%m-%Y %H:%M:%S',
+            'style': '{',
+        },
+        'myformatters_general': {
+            #'format': '{levelname} {message}',  # корректируем наше сообщение - добавили уровень и само сообщение
+            'format': '{asctime} {levelname} {module}',
+            'datefmt': '%d-%m-%Y %H:%M:%S',
+            'style': '{',
+        },
+        'myformatters_errors': {
+            #'format': '{levelname} {message}',  # корректируем наше сообщение - добавили уровень и само сообщение
+            'format': '{asctime} {levelname} {message} : {pathname} - {exc_info}',
+            'datefmt': '%d-%m-%Y %H:%M:%S',
+            'style': '{',
+        },
+        'myformatters_security': {
+            # 'format': '{levelname} {message}',  # корректируем наше сообщение - добавили уровень и само сообщение
+            'format': '{asctime} {levelname}  {module} {message}',
+            'datefmt': '%d-%m-%Y %H:%M:%S',
+            'style': '{',
+        },
+        'myformatters_mail': {
+            #'format': '{levelname} {message}',  # корректируем наше сообщение - добавили уровень и само сообщение
+            'format': '{asctime} {levelname} {message} : {pathname}',
+            'datefmt': '%d-%m-%Y %H:%M:%S',
+            'style': '{',
+        },
+    },
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',  #запись кто из пользователей сделал действие ошибку ...
+        },
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+    },
+}

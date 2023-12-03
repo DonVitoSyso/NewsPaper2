@@ -25,10 +25,20 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Exists, OuterRef
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_protect
-from .models import CatSub, Category
+from .models import CatSub
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponseRedirect, HttpResponse
+# D8_4
+from django.core.cache import cache # импортируем наш кэш
+# D13
+import logging
 
+
+logger = logging.getLogger(__name__)   # Имя = имя приложения автоматом, но можно имя указать вручную.
 
 class PostsList(ListView):
+    #D 13
+    logger.info('DEBUG')
     # Указываем модель, объекты которой мы будем выводить
     model = Post
     # Поле, которое будет использоваться для сортировки объектов
@@ -83,6 +93,21 @@ class PostDetail(DetailView):
     template_name = 'new.html'
     # Название объекта, в котором будет выбранный пользователем продукт
     context_object_name = 'new'
+    # D8_4
+    queryset = Post.objects.all()
+
+    # D8_4
+    def get_object(self, *args, **kwargs):  # переопределяем метод получения объекта, как ни странно
+       # кэш очень похож на словарь, и метод get действует так же.
+       # Он забирает значение по ключу, если его нет, то забирает None.
+       obj = cache.get(f'post-{self.kwargs["pk"]}', None)
+
+       # если объекта нет в кэше, то получаем его и записываем в кэш
+       if not obj:
+          obj = super().get_object(queryset=self.queryset)
+          cache.set(f'post-{self.kwargs["pk"]}', obj)
+
+       return obj
 
 
 # D4
@@ -171,33 +196,69 @@ class ArticleCreate(PermissionRequiredMixin, CreateView):
         return validated
 
 
+class CategoryList(PermissionRequiredMixin, ListView):
+   permission_required = ('news.add_post',)
+   model = Category
+   template_name = 'subscriptions.html'
+   context_object_name = 'categories'
+
+   def get_queryset(self):
+      categories = Category.objects.all()
+      filter_subscribed = Category.objects.filter(subscribers=self.request.user).distinct()
+
+      for category in categories:
+         if category in filter_subscribed:
+            category.user_subscribed = True
+         else:
+            category.user_subscribed = False
+
+      return categories
+
+   def post(self, request, **kwargs):
+      context = request.POST
+      category_id = context['category_id']
+      action = request.POST.get('action')
+      category = Category.objects.get(id=category_id)
+
+      if action == 'subscribe':
+          category.subscribers.add(request.user)
+      elif action == 'unsubscribe':
+          category.subscribers.remove(request.user)
+
+      return HttpResponseRedirect('/news/subscriptions')
+
+
+
 # D6
-@login_required
-@csrf_protect
-def subscriptions(request):
-    if request.method == 'POST':
-        category_id = request.POST.get('category_id')
-        category = Category.objects.get(id=category_id)
-        action = request.POST.get('action')
+# @login_required
+# @csrf_protect
+# def subscriptions(request):
+#     pass
+    # Ниже сложное решение (его рассмотрим позже)
 
-        if action == 'subscribe':
-            CatSub.objects.create(user=request.user, category=category)
-        elif action == 'unsubscribe':
-            CatSub.objects.filter(
-                user=request.user,
-                category=category,
-            ).delete()
-
-    categories_with_subscriptions = Category.objects.annotate(
-        user_subscribed=Exists(
-            CatSub.objects.filter(
-                user=request.user,
-                category=OuterRef('pk'),
-            )
-        )
-    ).order_by('name')
-    return render(
-        request,
-        'subscriptions.html',
-        {'categories': categories_with_subscriptions},
-    )
+    # if request.method == 'POST':
+    #     category_id = request.POST.get('category_id')
+    #     category = Category.objects.get(id=category_id)
+    #     action = request.POST.get('action')
+    #
+    #     if action == 'subscribe':
+    #         CatSub.objects.create(user=request.user, category=category)
+    #     elif action == 'unsubscribe':
+    #         CatSub.objects.filter(
+    #             user=request.user,
+    #             category=category,
+    #         ).delete()
+    #
+    # categories_with_subscriptions = Category.objects.annotate(
+    #     user_subscribed=Exists(
+    #         CatSub.objects.filter(
+    #             user=request.user,
+    #             category=OuterRef('pk'),
+    #         )
+    #     )
+    # ).order_by('name')
+    # return render(
+    #     request,
+    #     'subscriptions.html',
+    #     {'categories': categories_with_subscriptions},
+    # )

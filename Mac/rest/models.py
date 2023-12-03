@@ -22,6 +22,9 @@ class Product(models.Model):
     price = models.FloatField(default = 0.0)
     composition = models.TextField(default = "Состав не указан")
 
+    def __str__(self):
+        return self.name + "/" + str(self.price)
+
 class Staff(models.Model):
     full_name = models.CharField(max_length = 255)
     position = models.CharField(max_length = 2,
@@ -38,9 +41,9 @@ class Order(models.Model):  # наследуемся от класса Model
     cost = models.FloatField(default = 0.0)
     pickup = models.BooleanField(default = False)
     complete = models.BooleanField(default = False)
-    staff = models.ForeignKey(Staff, on_delete = models.CASCADE)
+    #staff = models.ForeignKey(Staff, on_delete = models.CASCADE)
 
-    products = models.ManyToManyField(Product, through = 'ProductOrder')
+    products = models.ManyToManyField(Product, through='ProductOrder')
 
     def finish_order(self):
         self.time_out = datetime.now()

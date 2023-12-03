@@ -27,6 +27,9 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Exists, OuterRef
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_protect
+# D 8.3
+from django.core.cache import cache # импортируем наш кэш
+
 
 
 class ProductsList(ListView):
@@ -83,6 +86,19 @@ class ProductDetail(DetailView):
     template_name = 'product.html'
     # Название объекта, в котором будет выбранный пользователем продукт
     context_object_name = 'product'
+
+    queryset = Product.objects.all()
+
+    def get_object(self, *args, **kwargs):  # переопределяем метод получения объекта, как ни странно
+        obj = cache.get(f'product-{self.kwargs["pk"]}',
+                        None)  # кэш очень похож на словарь, и метод get действует так же. Он забирает значение по ключу, если его нет, то забирает None.
+
+        # если объекта нет в кэше, то получаем его и записываем в кэш
+        if not obj:
+            obj = super().get_object(queryset=self.queryset)
+            cache.set(f'product-{self.kwargs["pk"]}', obj)
+
+        return obj
 
 
 # D4.5 Добавляем новое представление для создания товаров.

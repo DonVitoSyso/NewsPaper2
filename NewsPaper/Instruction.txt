@@ -598,5 +598,807 @@ def my_job():
 19. python manage.py runapscheduler
 
 
+###########################
+Celery
+
+
+1. pip3 install celery
+2. добавить файл celery.py рядом с settings.p
+
+import os
+from celery import Celery
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Mac.settings')
+
+app = Celery('Mac')
+app.config_from_object('django.conf:settings', namespace = 'CELERY')
+
+app.autodiscover_tasks()
+
+3.__init__.py (рядом с settings.py):
+
+from .celery import app as celery_app
+
+__all__ = ('celery_app',)
+
+4.(virtualenv) $ pip3 install redis
+(virtualenv) $ pip3 install -U "celery[redis]"
+
+5.(settings.py), дописав следующие строки:
+
+CELERY_BROKER_URL = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+Если вы используете Redis Labs, то переменные CELERY_BROKER_URL и CELERY_RESULT_BACKEND должны строиться по шаблону:
+
+redis://логин:пароль@endpoint:port (где endpoint и port вы также берёте из настроек Redis Labs)
+
+6.celery -A Mac worker -l INFO
++python manage.py runserver
+
+7. rest/tasks.py
+
+from celery import shared_task
+import time
+
+@shared_task
+def hello():
+    time.sleep(10)
+    print("Hello, world!")
+
+8. rest/urls.py
+
+from django.urls import path
+from .views import IndexView
+
+urlpatterns = [
+    path('', IndexView.as_view()),
+]
+
+
+9. rest/views.py
+
+from django.http import HttpResponse
+from django.views import View
+from .tasks import hello
+
+class IndexView(View):
+    def get(self, request):
+        hello.delay()
+        return HttpResponse('Hello!')
+
+10.rest/tasks
+@shared_task
+def printer(N):
+    for i in range(N):
+        time.sleep(1)
+        print(i+1)
+
+11. board/urls.py
+
+from django.urls import path
+from .views import IndexView, NewOrderView, take_order
+
+urlpatterns = [
+    path('', IndexView.as_view()),
+    path('new/', NewOrderView.as_view(), name = 'new_order'),
+    path('take/<int:oid>', take_order, name = 'take_order')
+]
+
+12. from django.shortcuts import redirect
+from django.views.generic import TemplateView, CreateView
+from .tasks import complete_order
+from .models import Order
+from datetime import datetime
+
+# главная страница - таблица заказов
+class IndexView(TemplateView):
+    template_name = "board/index.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['orders'] = Order.objects.all()
+        return context
+
+# форма нового заказа
+class NewOrderView(CreateView):
+    model = Order
+    fields = ['products'] # единственное поле
+    template_name = 'board/new.html'
+
+    # после валидации формы, сохраняем объект,
+    # считаем его общую стоимость
+    # и вызываем задачу "завершить заказ" через минуту после вызова
+    def form_valid(self, form):
+        order = form.save()
+        order.cost = sum([prod.price for prod in order.products.all()])
+        order.save()
+        complete_order.apply_async([order.pk], countdown = 60)
+        return redirect('/')
+
+# представление для "кнопки", чтобы можно было забрать заказ
+def take_order(request, oid):
+    order = Order.objects.get(pk=oid)
+    order.time_out = datetime.now()
+    order.save()
+    return redirect('/')
+
+13. tasks
+from celery import shared_task
+from .models import Order
+
+@shared_task
+def complete_order(oid):
+    order = Order.objects.get(pk = oid)
+    order.complete = True
+    order.save()
+
+14. Для запуска задач по расписанию, а именно это нам и понадобится сейчас,
+необходимо запускать Celery с флагом -B, который позволяет запускать периодические задачи:
+
+$ celery -A Mac worker -l INFO -B
+
+celery -A PROJECT worker -l INFO
+и
+celery -A PROJECT beat -l INFO
+
+15.celery.py
+# В качестве более реального, пусть и абсолютно бесполезного, примера посмотрим,
+# как можно запустить счетчик от 1 до N как периодическую задачу.
+
+app.conf.beat_schedule = {
+    'print_every_5_seconds': {
+        'task': 'rest.tasks.printer',
+        'schedule': 5,
+        'args': (5,),
+    },
+}
+
+
+16.задачу каждый понедельник в 8 утра, необходимо в расписание добавить следующее:
+
+from celery.schedules import crontab
+
+app.conf.beat_schedule = {
+    'action_every_monday_8am': {
+        'task': 'action',
+        'schedule': crontab(hour=8, minute=0, day_of_week='monday'),
+        'args': (agrs),
+    },
+}
+
+###########################
+D 8 CACHE
+
+1. Добавляем в settings.py следующий словарь:
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.path.join(BASE_DIR, 'cache_files'), # Указываем, куда будем сохранять кэшируемые файлы! Не забываем создать папку cache_files внутри папки с manage.py!
+    }
+}
+
+2. создать ту самую папку cache_files внутри основного каталога
+
+3. simpleapp\urls.py
+
+from django.views.decorators.cache import cache_page
+....
+path('<int:pk>/', cache_page(60*10)(ProductDetailView.as_view()), name='product_detail'), # добавим кэширование на детали товара. Раз в 10 минут товар будет записываться в кэш для экономии ресурсов
+...
+
+4. Кэш всего сайта (не верно настраивать!!!)
+Для этого надо в settings.py добавить в список MIDDLEWARE следующие строки:
+
+MIDDLEWARE = [
+    'django.middleware.cache.UpdateCacheMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.cache.FetchFromCacheMiddleware',
+]
+
+...
+CACHES = {
+    'default': {
+        'TIMEOUT': 60, # добавляем стандартное время ожидания в минуту (по умолчанию это 5 минут — 300 секунд)
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.path.join(BASE_DIR, 'cache_files'), # Указываем, куда будем сохранять кэшируемые файлы! Не забываем создать папку cache_files внутри папки с manage.py!
+    }
+}
+
+5.Например, кэширование шапки в шаблонах выглядело бы примерно так:
+
+{% load cache %} <!-- Загружаем кэширование -->
+    {% cache 30 header %} <!-- Кэшируем отдельный блок на 30 секунд -->
+        {% block header %}
+        {% endblock header %}
+    {% endcache %}
+Тег кэш имеет следующий синтаксис:
+
+{% cache <количество секунд на которое надо кэшировать> <айди кэширования> %}
+
+6.sample_app/views.py,
+from django.core.cache import cache # импортируем наш кэш
+
+
+class ProductDetailView(DetailView):
+    template_name = 'sample_app/product_detail.html'
+    queryset = Product.objects.all()
+
+    def get_object(self, *args, **kwargs): # переопределяем метод получения объекта, как ни странно
+        obj = cache.get(f'product-{self.kwargs["pk"]}', None) # кэш очень похож на словарь, и метод get действует так же. Он забирает значение по ключу, если его нет, то забирает None.
+
+        # если объекта нет в кэше, то получаем его и записываем в кэш
+        if not obj:
+            obj = super().get_object(queryset=self.queryset)
+            cache.set(f'product-{self.kwargs["pk"]}', obj)
+                return obj
+
+7. sample_app/models.py .
+
+from django.core.cache import cache
+
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    price = models.FloatField(validators=[MinValueValidator(0.0, 'Price should be >= 0.0')])
+    quantity = models.IntegerField(validators=[MinValueValidator(0, 'Quantity should be >= 0')])
+    category = models.ForeignKey('Category', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.name} {self.quantity}'
+
+    def get_absolute_url(self): # добавим абсолютный путь, чтобы после создания нас перебрасывало на страницу с товаром
+        return f'/products/{self.id}'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs) # сначала вызываем метод родителя, чтобы объект сохранился
+        cache.delete(f'product-{self.pk}') # затем удаляем его из кэша, чтобы сбросить его
+
+
+#########################
+D 11
+1. Для того чтобы создать собственную команду надо выбрать приложение, с которым она будет
+логически связана, и создать в его папке следующую структуру, например так:
+
+sample_app/management/commands/<имя вашей команды>.py
+
+2. Пример создания класса-команды:
+
+from django.core.management.base import BaseCommand, CommandError
+
+
+class Command(BaseCommand):
+    help = 'Подсказка вашей команды' # показывает подсказку при вводе "python manage.py <ваша команда> --help"
+    missing_args_message = 'Недостаточно аргументов'
+    requires_migrations_checks = True # напоминать ли о миграциях. Если тру — то будет напоминание о том, что не сделаны все миграции (если такие есть)
+
+    def add_arguments(self, parser):
+        # Positional arguments
+        parser.add_argument('argument', nargs='+', type=int)
+
+    def handle(self, *args, **options):
+        # здесь можете писать любой код, который выполняется при вызове вашей команды
+        self.stdout.write(str(options['argument']))
+
+3. название вашего файла и есть название самой команды!
+
+python manage.py runmycommand
+
+4. Команда, которая будет удалять все товары из нашего магазина.
+
+from django.core.management.base import BaseCommand, CommandError
+from sample_app.models import Product
+
+
+class Command(BaseCommand):
+    help = 'Подсказка вашей команды' # показывает подсказку при вводе "python manage.py <ваша команда> --help"
+    requires_migrations_checks = True # напоминать ли о миграциях. Если тру — то будет напоминание о том, что не сделаны все миграции (если такие есть)
+
+    def handle(self, *args, **options):
+        # здесь можете писать любой код, который выполнется при вызове вашей команды
+        self.stdout.readable()
+        self.stdout.write('Do you really want to delete all products? yes/no') # спрашиваем пользователя действительно ли он хочет удалить все товары
+        answer =  input() # считываем подтверждение
+
+        if answer == 'yes': # в случае подтверждения действительно удаляем все товары
+            Product.objects.all().delete()
+            self.stdout.write(self.style.SUCCESS('Succesfully wiped products!'))
+            return
+
+        self.stdout.write(self.style.ERROR('Access denied')) # в случае неправильного подтверждения, говорим что в доступе отказано
+
+5.Доработайте свой интернет-сервис. Напишите команду для manage.py, которая будет удалять все новости
+из какой-либо категории, но только при подтверждении действия в консоли при выполнении команды.
+
+Решение
+
+from django.core.management.base import BaseCommand, CommandError
+from sample_app.models import Product, Category
+
+
+class Command(BaseCommand):
+    help = 'Подсказка вашей команды'
+
+    def add_arguments(self, parser):
+        parser.add_argument('category', type=str)
+
+    def handle(self, *args, **options):
+        answer = input(f'Вы правда хотите удалить все статьи в категории {options["category"]}? yes/no')
+
+        if answer != 'yes':
+            self.stdout.write(self.style.ERROR('Отменено'))
+            return
+        try:
+            category = Category.objects.get(name=options['category'])
+            Post.objects.filter(category=category).delete()
+            self.stdout.write(self.style.SUCCESS(f'Succesfully deleted all news from category {category.name}')) # в случае неправильного подтверждения говорим, что в доступе отказано
+        except Post.DoesNotExist:
+            self.stdout.write(self.style.ERROR(f'Could not find category {}'))
+
+6. РАЗРЕГИСТРИРОВАТЬ? Делается это также просто.
+
+from django.contrib import admin
+from .models import Category, Product
+
+
+# Register your models here.
+
+admin.site.register(Category)
+admin.site.register(Product)
+admin.site.unregister(Product) # разрегистрируем наши товары
+
+7. показаны все поля товара.
+
+from django.contrib import admin
+from .models import Category, Product
+
+
+# создаём новый класс для представления товаров в админке
+class ProductAdmin(admin.ModelAdmin):
+    # list_display — это список или кортеж со всеми полями, которые вы хотите видеть в таблице с товарами
+    list_display = [field.name for field in Product._meta.get_fields()] # генерируем список имён всех полей для более красивого отображения
+    # list_display = ('name', 'price') # оставляем только имя и цену товара
+
+# Register your models here.
+
+admin.site.register(Category)
+admin.site.register(Product, ProductAdmin)
+
+8. Давайте дополним наши товары фильтрами, напоминаем, что главное действие сейчас ведётся в admin.py файле.
+
+from django.contrib import admin
+from .models import Category, Product
+
+
+# создаём новый класс для представления товаров в админке
+class ProductAdmin(admin.ModelAdmin):
+    # list_display — это список или кортеж со всеми полями, которые вы хотите видеть в таблице с товарами
+    list_display = ('name', 'price', 'on_stock') # оставляем только имя и цену товара
+    list_filter = ('price', 'quantity', 'name') # добавляем примитивные фильтры в нашу админку
+
+# Register your models here.
+
+admin.site.register(Category)
+admin.site.register(Product, ProductAdmin)
+
+9. Для того, чтобы добавить именно поиск, надо слегка изменить в очередной раз наш admin.py файл.
+
+from django.contrib import admin
+from .models import Category, Product
+
+
+# создаём новый класс для представления товаров в админке
+class ProductAdmin(admin.ModelAdmin):
+    # list_display — это список или кортеж со всеми полями, которые вы хотите видеть в таблице с товарами
+    list_display = ('name', 'price', 'on_stock') # оставляем только имя и цену товара
+    list_filter = ('price', 'quantity', 'name') # добавляем примитивные фильтры в нашу админку
+    search_fields = ('name', 'category__name') # тут всё очень похоже на фильтры из запросов в базу
+
+
+# Register your models here.
+
+admin.site.register(Category)
+admin.site.register(Product, ProductAdmin)
+
+10. Добавить действия можно довольно просто. Переходим снова в admin.py.
+
+from django.contrib import admin
+from .models import Category, Product
+
+
+# напишем уже знакомую нам функцию обнуления товара на складе
+def nullfy_quantity(modeladmin, request, queryset): # все аргументы уже должны быть вам знакомы, самые нужные из них это request — объект хранящий информацию о запросе и queryset — грубо говоря набор объектов, которых мы выделили галочками.
+    queryset.update(quantity=0)
+nullfy_quantity.short_description = 'Обнулить товары' # описание для более понятного представления в админ панеле задаётся, как будто это объект
+
+# создаём новый класс для представления товаров в админке
+class ProductAdmin(admin.ModelAdmin):
+    # list_display — это список или кортеж со всеми полями, которые вы хотите видеть в таблице с товарами
+    list_display = ('name', 'price', 'on_stock', 'quantity') # оставляем только имя и цену товара
+    list_filter = ('price', 'quantity', 'name') # добавляем примитивные фильтры в нашу админку
+    search_fields = ('name', 'category__name') # тут всё очень похоже на фильтры из запросов в базу
+    actions = [nullfy_quantity] # добавляем действия в список
+
+
+# Register your models here.
+
+admin.site.register(Category)
+admin.site.register(Product, ProductAdmin)
+
+#########################
+
+D 12
+
+1. For Postgres
+pip install psycopg2-binary
+
+
+
+2. Интерпритатор
+# Импортировать пакет psycopg2
+import psycopg2
+
+# Открыть подключение к базе.
+# Обратите внимание на синтаксис строки с информацией о БД:
+# если вы меняли настройки своей БД, то и здесь их придется
+# указать соответствующие.
+# Кстати, таких подключений можно открывать сколько угодно:
+# вдруг у вашего приложения данные распределены
+# по нескольким базам?
+conn = psycopg2.connect("dbname=postgres user=postgres")
+
+# Создать «курсор» на подключении к базе.
+# Курсоры используются для представления
+# сессий подключения к БД.
+cur = conn.cursor()
+
+# Выполнить команду напрямую.
+cur.execute(
+    "CREATE TABLE test (id serial PRIMARY KEY, num integer, data varchar);"
+)
+
+# Выполнить команду, не заботясь о корректном синтаксисе
+# представления данных: psycopg2 всё сделает за нас.
+cur.execute(
+    "INSERT INTO test (num, data) VALUES (%s, %s)",
+    (100, "abc'def")
+)
+
+# Выполнить команду
+cur.execute("SELECT * FROM test;")
+# Но как получить результат её выполнения?..
+
+# А вот так. fetchone — «принести» одну строчку результата,
+# fetchall — все строчки.
+cur.fetchone()
+
+# Завершить транзакцию
+conn.commit()
+# Закрыть курсор
+cur.close()
+# Закрыть подключение
+conn.close()
+
+
+3. settings.py необходимо в словаре DATABASES прописать данные вашей БД примерно следующим образом:
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': '',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    },
+}
+
+4. ArrayFild
+
+from django.contrib.postgres.fields import ArrayField
+from django.db import models
+
+class User(models.Model):
+    pseudonyms = ArrayField(
+        models.CharField(max_length=10, blank=True),
+        size=8,
+    )
+
+
+
+5. JSONFild
+
+from django.contrib.postgres.fields import JSONField
+from django.db import models
+
+class User(models.Model):
+    name = models.CharField(max_length=200)
+    profile_data = JSONField(null=True)
+
+
+
+###################
+D 13
+
+1. Для включения экранирования ничего делать не нужно, оно всегда включено автоматически.
+Однако, если для каких-то ваших целей необходимо выключить автоэкранирование, то нужную часть кода
+можно поместить внутри тэга autoescape со значением off.
+{% autoescape on %}
+    {{ something }}
+{% endautoescape %}
+
+
+
+2. Cycle
+{% for obj in array %}
+    <tr class="{% cycle 'blue' 'white' %}">
+        <td> {{ obj.col1 }} </td>
+        <td> ...
+    </tr>
+{% endfor %}
+Тогда для первой строки будет применен стиль blue, для второй — white, для третьей — снова blue и т. д.
+Удобно? Особенно удобно тем, что можно использовать не только два объекта для итерации, а сколько угодно.
+
+3. firstof
+
+Бывает такое, что в шаблон передается несколько переменных и нужно выбрать одну из них, которая принимает значение не False  (в т. ч. и пустые строки, пустые списки и т. д.). Для этого на помощь приходит тэг firstof.
+
+{% firstof var1 var2 var3 %}
+
+
+4.for … empty
+
+С обычным циклом for мы хорошо знакомы. Однако в реальных ситуациях бывает так, что итерируемый объект (список, например) оказывается пустым. Ранее предлагалась конструкция с проверкой на существование:
+
+{% if array %}
+    {% for t in array %}
+        do_something
+    {% endfor %}
+{% else %}
+    Список пуст
+{% endif %}
+Громоздко и нечитабельно, поэтому у тэга for есть дополнительное свойство. Предыдущая конструкция эквивалентна этой:
+
+{% for t in array %}
+    do_something
+{% empty %}
+    Список пуст
+{% endfor %}
+
+
+
+5.ifchanged
+
+Данный тэг используется в циклах для выполнения кода только при наличии изменений. Есть два способа его применения. Первый используется без аргументов, и тогда рендеринг происходит, только если содержимое внутри тэга подверглось изменениям.
+
+{% for t in array %}
+    {% ifchanged %} Вывести значение {{ t.key }} {% endifchanged %}
+    do something in loop
+{% endfor %}
+Этот вариант действует на весь контент внутри тэга, но можно вручную контролировать изменения данных, если использовать аргументы.
+
+{% for t in array %}
+    {% ifchanged t.key %} Вывести значение {{ t.key }} {% endifchanged %}
+    do something in loop
+{% endfor %}
+Тэг удобен, когда нужно выводить списки по категориям и, например, сначала вывести название категории, а потом список объектов этой категории. Как, например, в словарях — сначала первая буква жирным шрифтом, а потом — все слова на эту букву.
+
+
+
+6.include
+
+Ранее нами использовались тэги block и extend для разбиения кода шаблона на несколько файлов. Имелась возможность выстраивать структуру наследования шаблонов для сокращения повторения кода. Тэг include позволяет встроить какой-то HTML-код (из другого файла) в текущий без встраивания в общую структуру наследования. Иногда это бывает крайне полезно. Особенность заключается в том, что контекст, используемый в основном файле, передается также и в файл, который «импортируется» с помощью тэга include. Таким образом можно писать контекстно-независимые куски HTML-кода, которые могут быть применены в разных других основных файлах и рендериться в зависимости от текущего контекста.
+
+Для подобного «включения» нужно указать название файла от корня папки шаблонов:
+
+{% include "foo/bar.html" %}
+
+
+
+7. load
+
+К этому тэгу мы вернемся в следующей части этой темы, ведь он позволяет использовать собственные тэги и фильтры. Мы будем их создавать в .py файлах, а тэг load позволяет указать в шаблоне, из какого файла их нужно брать:
+
+{% load package.customtags %}
+
+
+
+8. url
+
+Еще один знакомый вам тэг, который позволяет вставлять ссылки по их имени в URL patterns. На всякий
+случай вспомним, как он работает. Допустим, в главном файле urls.py есть подключение URL из приложения:
+
+path('client/', include('project_name.app_name.urls'))
+А в файле конфигурации URL самого приложения следующее:
+
+path('client/<int:id>/', app_views.client, name='app-views-client')
+В таком случае в шаблоне вы можете вставлять ссылку, используя тэг url:
+
+{% url 'app-views-client' cliend.id %}
+Если URL не принимает никаких аргументов, то достаточно указать только его name. Если же URL обязательно должен получить один (или несколько) параметров, то их вставка внутри тэга обязательна, как в примере выше.
+Если это не будет выполнено, то Django выбросит исключение NoReverseMatch, что говорит о том,
+что Django не справился с тем, чтобы найти нужный URL-шаблон для данного имени и набора параметров.
+
+
+9. with
+
+Последний тэг, с которым мы познакомимся — это тэг создания контекстных переменных. Часто при использовании
+данных внутри шаблонов приходится писать длинные конструкции с большим количеством точек по типу:
+object.other_object.field.method. Это неудобно и неэффективно. Тэг with позволяет кэшировать подобные,
+часто используемые, переменные, используя более короткие имена:
+
+{% with my_method = object.other_object.field.method %}
+    do something with my_method
+{% endwith %}
+Естественно, даже этим списком встроенные тэги не ограничиваются. Здесь был проведен обзор наиболее часто используемых
+тэгов, а со всеми остальными можно познакомиться в соответствующем разделе документации.
+
+
+10. для создания собственных фильтров мы должны сделать следующие шаги:
+
+   1. В приложении проекта создать директорию templatetags.
+   2. Добавить в ней пустой файл __init__.py.
+   3. Создать файл, например, custom_extras.py.
+   4. В шаблоне прописать {% load custom_extras %}.
+
+В самом файле custom_extras.py необходимо импортировать библиотеку шаблонов:
+
+from django import template
+
+register = template.Library()
+Объект register содержит декораторы, благодаря которым можно оборачивать функции в фильтры или тэги. Например, рассмотренный нами фильтр lower будет выглядеть так:
+
+@register.filter
+def lower(value):
+    return value.lower()
+Для регистрации собственного тэга необходимо использовать другой декоратор simple_tag:
+
+@register.simple_tag
+def current_time(format_string):
+    return datetime.datetime.now().strftime(format_string)
+Данный тэг вернет текущее время в формате, который передается в качестве аргумента тэга.
+
+Что важно знать про создание собственных тэгов?
+
+-Django самостоятельно осуществляет проверку наличия обязательных аргументов. Вам не нужно беспокоиться о проверках.
+-В функцию можно передавать переменные из шаблонов.
+-Функция также может использовать контекст шаблона. Для этого необходимо добавить аргументы у декоратора и самой функции.
+
+@register.simple_tag(takes_context = True)
+def func(context, other_arg):
+    pass
+
+-Название тэга, используемое в самом шаблоне, может отличаться от названия функции. Для указания иного имени нужно добавить соответствующий аргумент в декоратор.
+
+@register.simple_tag(takes_context = True, name = "tagname")
+def func(context, other_arg):
+    pass
+
+11. В первую очередь необходимо получить экземпляр логгера (регистратора). Для этого можно
+воспользоваться функцией этого пакета:
+
+import logging
+
+logger = logging.getLogger(name)
+
+Для регистрации конкретного сообщения можно воспользоваться одним из методов,
+соответствующих уровням логирования:
+
+logger.debug()
+logger.info()
+logger.warning()
+logger.error()
+logger.critical()
+
+Например, для регистрации сообщения с ошибкой, можно выполнить такой вызов:
+
+logger.error("Hello! I'm error in your app. Enjoy:)")
+
+Рассмотрим пример
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'style' : '{',
+    'formatters': {
+        'simple': {
+            'format': '%(levelname)s %(message)s'
+        },
+    },
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler'
+        }
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['mail_admins'],
+            'level': 'ERROR',
+            'propagate': False,
+        }
+    }
+}
+
+
+PROJECT
+
+setting.py
+...
+LOGGING = {
+   'version': 1,
+   'disable_existing_loggers': False,
+   'loggers': {                           # определение логера
+      'django': {
+         'handlers': ['console', 'news'],            # указываем наше приложение для логирования
+         'level': 'DEBUG',                # уровень логирования
+      },
+   },
+   'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',# инфо в консоль
+        },
+        'news': {                           # настройка нашего приложения
+             'level': 'INFO',
+             'class': 'logging.FileHandler',# класс - как будет обрабатываться наш handlers
+             'filename': 'debug.log',
+             'formatter ': 'myformatters',
+             'filters': ['require_debug_true'],
+        },
+   },
+   'formatters': {
+        'myformatters': {
+            #'format': '{levelname} {message}',  # корректируем наше сообщение - добавили уровень и само сообщение
+            'format': '{asctime} {levelname} {message}',
+            'datefmt': '%d-%m-%Y %H:%M:%S',
+            'style' : '{',
+        },
+    },
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',  #запись кто из пользователей сделал действие ошибку ...
+        },
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+    },
+}
+
+
+view.py
+
+...
+import logging
+
+
+logger = logging.getLogger(__name__)   # Имя = имя приложения автоматом, но можно имя указать вручную.
+
+dex index(request):
+   logger.info('INFO')
+
+
+
+#############################
+
+
 
 

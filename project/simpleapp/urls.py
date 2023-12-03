@@ -5,6 +5,8 @@ from .views import (
    ProductUpdate, ProductDelete, # D4.5
    subscriptions, # D6.3
 )
+# D 8.2
+from django.views.decorators.cache import cache_page
 
 
 urlpatterns = [
@@ -17,7 +19,11 @@ urlpatterns = [
    path('', ProductsList.as_view(), name='product_list'),  # refresh D4.5
    # pk — это первичный ключ товара, который будет выводиться у нас в шаблон
    # int — указывает на то, что принимаются только целочисленные значения
-   path('<int:pk>', ProductDetail.as_view(), name='product_detail'), # refresh D4.5
+   # path('<int:pk>', ProductDetail.as_view(), name='product_detail'), # refresh D4.5
+   # D 8.2
+   # добавим кэширование на детали товара. Раз в 10 минут товар будет записываться в кэш для экономии ресурсов.
+   # path('<int:pk>/', cache_page(60*10)(ProductDetail.as_view()), name='product_detail'),
+   path('<int:pk>/', ProductDetail.as_view(), name='product_detail'),
    # D4.5
    path('create/', ProductCreate.as_view(), name='product_create'),
    path('<int:pk>/update/', ProductUpdate.as_view(), name='product_update'),

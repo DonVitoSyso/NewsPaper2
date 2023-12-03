@@ -6,6 +6,8 @@ from django.template.loader import render_to_string
 from .models import Post
 from datetime import timedelta, date
 
+# D7
+from celery import shared_task
 
 
 def get_subscribers(category):
@@ -31,6 +33,9 @@ def send_emails(post_object, *args, **kwargs):
     # для отправки писем убрать коммент внизу #
     msg.send()
 
+# D7 start
+@shared_task
+# D7 end
 def notify_subscribers_weekly():
    template = 'subcat/weekly_digest.html'
    week = 7
@@ -79,7 +84,9 @@ def notify_subscribers_weekly():
       # Определяем все категории, нужны для
       # нахождения почтовых подписок на категорию
 
-
+# D7 start
+@shared_task
+# D7 end
 def new_post_subscription(instance):
    # latest_post = Post.objects.all().order_by('-date')[0]
    template = 'subcat/newpost.html'
